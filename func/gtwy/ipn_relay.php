@@ -137,7 +137,7 @@ function sort_ipn( array $ipn_data ){
 		
 		//PRELIMINARY CHECKS. CHECK USD currency and then receiver email address.
 		 
-		$biz_email = ( $ipn_data[ 'ipn_sandbox' ] )? "testbiz1@trainingdoulas.com" : "rachel.leavitt@gmail.com" ; //True= sandbox, False = live. 
+		$biz_email = ( $ipn_data[ 'ipn_sandbox' ] )? "testemail@example.com" : "liveemail@example.com" ; //True= sandbox, False = live. 
 		
  		if( ( !array_key_exists ( 'mc_currency', $ipn_data ) ) && ( strcmp( $ipn_data['mc_currency'], 'USD' ) !== 0 ) ){
 			
@@ -240,10 +240,7 @@ function sort_ipn( array $ipn_data ){
 function is_admin_payment( array $ipn_data ){
 	
 	$admin_arr = array(
-		'brentleavitt@sunswingmedia.com',
-		'office@trainingdoulas.com',
-		'rachel.leavitt@gmail.com',
-		'rachel@trainingdoulas.com'
+		'admin1@example.com','admin2@example.com' //an email list of all admin users who should receive notice of payments made. 
 	);
 
 	if( isset( $ipn_data[ 'payer_email' ] ) ){
