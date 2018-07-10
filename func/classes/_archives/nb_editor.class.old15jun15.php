@@ -1,0 +1,2184 @@
+<?php 
+
+/*
+ *  New Beginnings Editor PHP Class
+ *	Created on 18 July 2013
+ *  Updated on 31 July 2014
+ *
+ *	The purpose of this class is to handle recurring processes related to 
+ *	editor pages for the New Beginnings Doula Training website. 
+ *
+ */
+
+ 
+ 
+class NB_Editor{ 
+
+/* 	private static $log_dir_path = '';
+	private static $log_dir_url  = ''; */
+	
+	private function __construct(){
+				
+		self::init();
+	
+	}
+	
+
+	/**
+	 * Initialization
+	 *
+	 * @since 1.0
+	 **/
+	public function init() {
+		add_action( 'admin_menu', array( __CLASS__, 'add_admin_pages' ) );
+		//add_action( 'init', array( __CLASS__, 'process_student' ) );
+	}
+
+	/**
+	 * Add administration menus
+	 *
+	 * @since 1.0
+	 **/
+	public function add_admin_pages() {
+	
+		//STUDENT Editor Pages
+		add_menu_page('Students Overview', 'Students', 'edit_users', 'students',  array( __CLASS__, 'load_students_overview' ) , 'dashicons-heart', 50 );
+		add_submenu_page( 'students', 'Add New Student', 'Add New', 'edit_users', 'add_student', array( __CLASS__, 'load_new_student_editor' ) );
+		add_submenu_page( 'students', 'Email Student', 'Auto Emails', 'edit_users', 'email_student', array( __CLASS__, 'load_email_student_editor' ) );
+		add_submenu_page( 'students', 'Import Students', 'Import Trxn', 'edit_users', 'import_transaction', array( __CLASS__, 'load_import_transaction_editor' ) );
+		add_submenu_page( NULL, 'Edit Student', '', 'edit_users', 'edit_student', array( __CLASS__, 'load_student_editor' ) );
+		
+		//TRANSACTION Editor Pages
+		add_submenu_page( 'students', 'Transactions Overview', 'Transactions', 'edit_users', 'nb_transactions', array( __CLASS__,'load_transactions_overview' ) );
+		add_submenu_page( NULL, 'Add New Transaction', '', 'edit_users', 'add_transaction',  array( __CLASS__, 'load_new_transaction' ) );
+		add_submenu_page( NULL, 'Edit Transaction', '', 'edit_users', 'edit_transaction',  array( __CLASS__, 'load_transaction_editor' ) );
+		
+		//DEV TEST WINDOW
+		
+		if( ( substr( get_bloginfo('url'), 7, 3 ) ) === 'dev' ){
+			add_submenu_page( 'students', 'Test Window', 'Test Window', 'edit_users', 'test_window',  array( __CLASS__, 'load_test_window_editor' ) );
+		}
+		
+		//ASSIGNMENTS Editor page
+		add_submenu_page( NULL, 'Edit Grades', '', 'edit_users', 'edit_grades',  array( __CLASS__, 'load_grades_editor' ) );
+		
+		//MISC
+		self::add_admin_menu_separator(30);
+	}
+	
+	/*
+	 * LOAD STUDENTS OVERVIEW
+	 *
+	 * @since 1.0
+	 **/		
+
+	public function load_students_overview(){
+		
+		if (!current_user_can('edit_users'))
+			wp_die(__('You do not have sufficient permissions to access this page.'));
+			
+		global $student_type;
+		
+		if( !isset ( $_GET['student_type'] ) ){
+			$student_type = 'all';
+		} else {
+			$student_type = $_GET['student_type'];	
+		}
+		switch ($student_type){
+			case 'current':
+				self::students_overview_current();
+				break;
+				
+			case 'inactive':
+				self::students_overview_inactive();
+				break;
+				
+			case 'alumni':
+				self::students_overview_alumni();
+				break;
+				
+			case 'all':
+			default:
+				self::students_overview_all();
+				break;
+		}		
+	}
+
+				
+		
+	/*
+	 * STUDENTS OVERVIEW ALL
+	 *
+	 * @since 1.0
+	 **/
+
+	public function students_overview_all(){
+	 
+		self::nb_student_overview_header();
+		
+	
+		
+		if( !class_exists('NB_Students_Tables')){ //This should be available because the Tables class is loaded before the editor class...
+			echo "Problems, please fix them.";
+		} else {
+			$nb_students_list = new NB_Students_Tables();
+			
+			$nb_students_list->prepare_items();
+		
+			$nb_students_list->display();
+		} 
+		
+
+		$self::nb_admin_footer(); 
+	}
+		
+		
+		
+		
+	/*
+	 * STUDENTS OVERVIEW CURRENT
+	 *
+	 * @since 1.0
+	 **/
+
+	public function students_overview_current(){
+		
+		echo 'This is the current students overview filtered page.';
+
+	}
+
+	
+			
+		
+	/*
+	 * STUDENTS OVERVIEW INACTIVE
+	 *
+	 * @since 1.0
+	 **/
+
+	public function students_overview_inactive(){}
+
+
+	
+			
+		
+	/*
+	 * STUDENTS OVERVIEW ALUMNI
+	 *
+	 * @since 1.0
+	 **/
+
+	public function students_overview_alumni(){}
+
+
+	
+			
+		
+	/*
+	 * LOAD NEW STUDENT EDITOR
+	 *
+	 * @since 1.0
+	 **/
+
+	public function load_new_student_editor(){
+
+		self::load_student_form( 'Add New Student' ); //Title is the minimum variable we need to use this function. 
+		
+	}
+
+
+
+	/*
+	 * LOAD STUDENT EDITOR
+	 *
+	 * @since 1.0
+	 **/
+
+	public function load_student_editor(){
+		
+		//Current User has permission to Edit Students... 
+		if ( !current_user_can( 'edit_user', $user_id ) ) { return false; }
+		
+		$errors = null;
+		$message = null;
+		$updated = false; 
+		$sid = $_REQUEST['student_id'];
+		$student = get_userdata($sid); 
+		
+		if( !empty($_POST) || wp_verify_nonce($_POST['trees_and_flowers'],'edit_student') ) {
+			
+			$nbStud = new NB_Student();
+
+			//We need to run a check to see if new user data is being entered. Probably need to also prepare data to be processed via the NB_Student Class. 
+			
+			if( !isset( $_REQUEST['student_id'] ) ){//We are inserting a new student's information.
+				if( isset($_POST['trees_and_flowers']) && ( $_POST['_wp_http_referer'] == '/wp-admin/admin.php?page=add_student' ) )
+				//This is a new student being submitted via the add_student page. Most values will be prepared for submission on that page. 
+				
+				$sPost = $nbStud->student_post;//an array to prep values for add_student
+				
+				foreach($_POST as $sPostKey => $sPostVal){
+					if( array_key_exists($sPostKey, $sPost) ){
+						//echo "sPostKey is $sPostKey and sPostVal is $sPostVal. <br>";
+						$sPost[$sPostKey] = $sPostVal;
+					}
+				}
+				
+				//Set user_login, user_nicename, nickname
+				$sPost['user_login'] = $_POST['first_name'].$_POST['last_name'];
+				$sPost['user_nicename'] = strtolower($_POST['first_name'].'-'.$_POST['last_name']);
+				$sPost['nickname'] = $_POST['first_name'].$_POST['last_name'];
+				$sPost['user_pass'] = wp_generate_password( 12, false );
+				
+				$student = $nbStud->add_student($sPost);//This is where all the processing happens. 
+				
+				if( is_a( $student, 'WP_User') ){
+				
+					$added = true;
+				
+				} elseif( is_wp_error( $student ) ) {
+				
+					$errors = $student;
+					$student = null; //We need to empty this out, because the form will want to use it. 
+					
+				}
+				
+				$message = ( isset($added) && ($add == true) )? "We've added a new student account for $student->display_name." : null;
+			
+			} else {  //We are UPDATING student information that has been passed. 
+				
+				//We need the current student data to compare to updated data. 
+				
+				//Here's a couple of more security checks. 
+				if( isset($_POST['trees_and_flowers']) && ( $_POST['_wp_http_referer'] == '/wp-admin/admin.php?page=edit_student&student_id='.$sid ) ){
+					
+					$_POST['ID'] = $_GET['student_id'];
+					$updated_student = $nbStud->update_student($_POST, 1, 0); //override set, don't display update detail messages. 
+					
+					//echo "<br><br> Did you catch that: ";
+					//var_dump( $updated_student );
+					//echo "<br><br>";
+					if( is_a($updated_student, 'WP_User') ) {// New Method from NB_Student class, needs to be created. 
+						$updated = true;
+						$student = $updated_student;
+					}
+					//Do we want to send an update message? we could. 
+					$message = ( isset($updated) && ($updated === true) )? "We've updated the student account for $student->display_name." : "There was nothing new to update. Thanks anyways.";
+
+				}				
+			}// end nonce else. 
+		}
+		
+		$studTitle = "Student Editor: <em>". $student->display_name ."</em>"; //Title for student editor.  
+		self::load_student_form( $studTitle, 'add_student', $student, $message, $errors );//Load the Student Form. 
+	}
+
+
+	/*
+	 * LOAD STUDENT FORM
+	 *
+	 * @since 1.0
+	 **/	
+	 
+	
+	public function load_student_form( $studTitle, $newAction = null, WP_User $student = null, $message = null, WP_Error $errors = null ){
+		
+ 		if( isset($_REQUEST['student_id']) ){
+			$sid = $_REQUEST['student_id'];
+		} elseif( is_object($student) ) {
+			$sid = $student->ID;
+		} else {
+			$sid = null;
+		} 
+		
+		
+		self::nb_admin_header($studTitle, $newAction); 
+		
+		if( !isset($errors) &&( is_a( $errors, 'WP_Error') ) ){
+			echo '<div class="errors" id="erros"><p>There are errors. I still need to improve upon this.</p></div>';
+		}
+		
+		if($message != null)
+			echo '<div class="updated" id="message"><p>'.$message.'</p></div>';
+		
+		
+		if( !empty( $sid ) ){
+			echo '<h3>Student Transaction Records</h3>';
+					
+			if( class_exists('NB_Transaction_Tables') ){ //This should already be loaded at this point.
+			
+				$nb_transaction_list = new NB_Transaction_Tables();
+				
+				$nb_transaction_list->prepare_items();
+			
+				$nb_transaction_list->display();
+			}		
+		}
+		
+		echo'<form method="post" action="admin.php?page=edit_student';
+		if($sid != null)
+			echo '&student_id='.intval($sid);
+		echo'">';	
+		
+		wp_nonce_field('edit_student','trees_and_flowers');
+		echo'	
+			<h3>Personal Information</h3>
+			<table class="form-table">
+				<tr>
+					<td>
+						<label for="first_name">First Name</label>
+						<input type="text" id="first_name" name="first_name"  class="regular-text" value="'.$student->first_name.'" >
+					</td>
+					<td>
+						<label for="last_name">Last Name</label>
+						<input type="text" id="last_name" name="last_name"  class="regular-text" value="'.$student->last_name.'" >
+					</td>
+					<td>
+						<label for="user_login">User Name</label>
+						<input disabled type="text" id="user_login" name="user_login"  class="regular-text" value="'.$student->data->user_login.'" >
+					</td>
+				</tr>
+				<tr>
+					
+					<td>
+						<label for="display_name">Display Name</label>
+						<input type="text" id="display_name" name="display_name"  class="regular-text" value="'.$student->data->display_name.'" >
+					</td>
+					<td>
+						<label for="user_email">Email</label>
+						<input type="email" id="user_email" name="user_email"  class="regular-text" value="'.$student->data->user_email.'" >
+					</td>
+					<td>
+						<label for="student_phone">Phone</label>
+						<input type="text" id="student_phone" name="student_phone"  class="regular-text" value="'.$student->student_phone.'" >
+					</td>
+				</tr>
+				<tr>
+					<td>
+						<label for="student_address">Address</label>
+						<input type="text" id="student_address" name="student_address"  class="regular-text" value="'.$student->student_address.'" >
+					</td>
+					<td>
+						<label for="student_address2">Address, Second Line</label>
+						<input type="text" id="student_address2" name="student_address2"  class="regular-text" value="'.$student->student_address2.'" >
+					</td>
+					<td>
+						<label for="student_city">City</label>
+						<input type="text" id="student_city" name="student_city"  value="'.$student->student_city.'" >
+					</td>
+				</tr>
+				<tr>
+					<td>
+						<label for="student_state">State</label>
+						<input type="text" id="student_state" name="student_state"  value="'.$student->student_state.'" >
+					</td>
+					<td>
+						<label for="student_postalcode">Postal Code</label>
+						<input type="text" id="student_postalcode" name="student_postalcode"  value="'.$student->student_postalcode.'" >
+					</td>
+					<td>
+						<label for="student_country">Country</label>
+						<input type="text" id="student_country" name="student_country"  class="regular-text" value="'.$student->student_country.'" >
+					</td>
+					
+				</tr>
+			</table>
+			
+			
+			<h3>Payment Information</h3>
+			<table class="form-table">
+				<tr>
+					<td colspan="2" >
+						<label for="student_paypal">Paypal Email</label>
+						<input type="email" id="student_paypal" name="student_paypal"  class="regular-text" value="'.$student->student_paypal.'" >
+					</td>
+					<td>
+						<label for="user_registered">Registration Date</label>
+						<input type="text" id="user_registered" name="user_registered"  class="regular-text" value="'.$student->data->user_registered.'" >
+					</td>
+					
+				</tr>
+				<tr>
+					<td>
+						<label for="student_status">Status</label>';
+			
+				$student_current = (isset($student->allcaps['student_current']))? $student->allcaps['student_current']: null;
+				
+				$studCurArr = array(
+					0 => 'Inactive',
+					1 => 'Current'
+				);	
+				
+				self::nb_select_forms( $studCurArr, 'student_status', $student_current);
+						
+						
+					echo '</td>
+					<td>
+						<label for="payments_received">Payments Received</label>';
+			
+				$pymt_rcvd = isset($student->payments_received)? $student->payments_received: null;
+
+				$pymt_rcvdArr = array(
+					'1/1' => 'Paid in Full (1/1)',
+					'1/12' => '1 of 12',
+					'2/12' => '2 of 12',
+					'3/12' => '3 of 12',
+					'4/12' => '4 of 12',
+					'5/12' => '5 of 12',
+					'6/12' => '6 of 12',
+					'7/12' => '7 of 12',
+					'8/12' => '8 of 12',
+					'9/12' => '9 of 12',
+					'10/12' => '10 of 12',
+					'11/12' => '11 of 12',
+					'12/12' => 'Complete (12/12)'
+				);	
+				
+				self::nb_select_forms( $pymt_rcvdArr, 'payments_received', $pymt_rcvd);
+						
+						
+					echo '</td>
+				
+					
+					<td>
+						<label for="last_payment_received">Last Payment Received</label>
+						<input type="text" id="last_payment_received" name="last_payment_received"  class="regular-text" value="'.$student->last_payment_received.'" >
+					</td>
+				</tr>
+				<tr>
+					<td>
+						<label for="billing_type">Billing Type</label>';
+			
+				$billing_type = isset($student->billing_type)? $student->billing_type: null;
+
+				$billTypeArr = array(
+					'' => '---',
+					'paypal_recurring' => 'Paypal (recurring)',
+					'paypal_manual' => 'Paypal (manual)',
+					'paypal_onetime' => 'Paypal (one-time)',
+					'check' => 'Check',
+					'other' => 'Other'
+				);	
+				
+				self::nb_select_forms( $billTypeArr, 'billing_type', $billing_type);
+						
+						
+					echo '</td>
+								<td>
+									<label for="program_rate">Program Rate</label>';
+			
+				$program_rate = isset($student->program_rate)? $student->program_rate: null;
+
+				$prgrmRtArr = array(
+					''	 	=> '---',
+					'9p' 	=> '$9/partial',
+					'15p'	=> '$15/partial',
+					'18p' 	=> '$18/partial',
+					'20p' 	=> '$20/partial',
+					'100f' 	=> '$100/full',
+					'150f' 	=> '$150/full',
+					'180f' 	=> '$180/full',
+					'200f' 	=> '$200/full'
+				);	
+				
+				self::nb_select_forms( $prgrmRtArr, 'program_rate', $program_rate);
+						
+						
+					echo '</td>
+							
+					<td> 
+						<!-- empty -->
+					</td>
+				</tr>
+			</table>
+			<h3>Course Information</h3>
+			
+			<table class="form-table">
+				<tr>
+					<td>
+					<label for="course_access">Course Access</label>';
+					
+				$course_access = isset($student->course_access)? $student->course_access: null;
+
+				$courseAccArr = array(
+					0	=> '(not set)',
+					1 	=> 'main course only',
+					2	=> 'main & childbirth',
+					3 	=> 'all course materials'
+				);	
+				
+				self::nb_select_forms( $courseAccArr, 'course_access', $course_access);
+				
+				echo '</td>
+				</tr>
+			</table>
+			
+			<h3>Administrator Notes</h3>
+			<table class="form-table">
+				<tr>
+					<td>
+						<textarea name="admin_notes" id="admin_notes" rows="5" cols="100">'.$student->admin_notes.'</textarea>
+					</td>
+				</tr>
+			</table>';
+			
+			submit_button('Update Student');
+		echo '</form>'; 
+		
+		self::nb_admin_footer();
+	}
+	
+
+	
+	
+	/*
+	 * LOAD TRANSACTIONS OVERVIEW
+	 *
+	 * @since 1.0
+	 **/		
+
+
+	public function load_transactions_overview(){
+		self::nb_admin_header('Transactions Overview', 'add_transaction'); 
+
+		//Use the WP_List_Table Class? Maybe. 
+		
+		
+		self::nb_admin_footer();
+	}
+
+
+	/*
+	 * LOAD NEW TRANSACTION
+	 *
+	 * @since 1.0
+	 **/
+
+
+	
+	public function load_new_transaction(){
+		
+		self::load_transaction_form('New Transaction');
+
+	}
+
+
+	/*
+	 * LOAD TRANSACTION EDITOR
+	 *
+	 * @since 1.0
+	 *
+	 * 
+	 *
+	 * This function is called when an existing transaction needs to be displayed for both review and editing at the same time. 
+	 *
+	 *
+	 **/
+
+	public function load_transaction_editor(){
+		global $wpdb;
+		
+		$transaction_id = null;
+		$message = null;
+		$transArr = array();
+
+		//This is an updated transaction. 
+		if( isset($_GET['trans_id']) ){
+			//load the transaction details from the database
+			$transaction_id = $_GET['trans_id'];
+			if ( !empty($_POST) && check_admin_referer('edit_transaction','transaction-check') ){
+				//This is an update to an existing transaction. Proceed accordingly. 
+				
+				$transTime = ( isset($_POST['trans_time']) )? $_POST['trans_time']: date("Y-m-d H:i:s");
+				
+				$transData = array(
+					'student_id'=>$_POST['student_id'],
+					'trans_time' => $transTime,
+					'trans_amount'=>$_POST['trans_amount'],
+					'trans_label'=>$_POST['trans_label'],
+					'trans_detail'=>$_POST['trans_detail'],
+					'trans_method'=>$_POST['trans_method'],
+					'trans_type'=>$_POST['trans_type'],
+					'pp_txn_id'=>$_POST['pp_txn_id']
+				);
+				
+				$transFormat = array( '%f', '%s', '%d', '%s', '%s', '%s', '%s', '%s' );	
+				
+				$transWhere = array( 'transaction_id'=>$transaction_id );
+				
+				$db_updated = $wpdb->update( 'nb_transactions', $transData, $transWhere, $transFormat );
+					
+				
+				if($db_updated != false) $message = 'This transaction has been successfully updated.';
+			}
+		// This is a new transaction insert. 	
+		} elseif ( !empty($_POST) && check_admin_referer('edit_transaction','transaction-check') ){ //Not quite the right check???
+			//
+			$timestamp =  ( isset($_POST['trans_time']) )? $_POST['trans_time']: date("Y-m-d H:i:s");
+			
+			$transData = array(
+				'student_id'=>$_POST['student_id'],
+				'trans_amount'=>$_POST['trans_amount'],
+				'trans_time'=> $timestamp,
+				'trans_label'=>$_POST['trans_label'],
+				'trans_detail'=>$_POST['trans_detail'],
+				'trans_method'=>$_POST['trans_method'],
+				'trans_type'=>$_POST['trans_type'],
+				'pp_txn_id'=>$_POST['pp_txn_id']
+			);
+			
+			$transFormat = array( '%f', '%d', '%s', '%s', '%s', '%s', '%s', '%s' );
+			
+			$wpdb->insert( 'nb_transactions', $transData, $transFormat );
+			
+			$transaction_id = $wpdb->insert_id;
+			
+			if($transaction_id != null) $message = 'This transaction has been added.';
+			
+		}
+				
+		if( $transaction_id != null){
+				$transArr = $wpdb->get_results( 'SELECT * FROM nb_transactions WHERE transaction_id='.intval($transaction_id).' LIMIT 1', ARRAY_A );
+				$transArr = $transArr[0];
+				foreach($transArr as $tKey => $tVal){
+					$transArr[$tKey] = stripslashes($tVal);
+				}
+		}
+
+				
+				
+		self::load_transaction_form('Edit Transaction', 'add_transaction', $transArr, $transaction_id, $message); 
+		
+	}
+
+
+
+	/*
+	 * LOAD TRANSACTION FORM
+	 *
+	 * @since 1.0
+	 *
+	 *
+	 *
+	 *
+	 *
+	 *
+	 * Called by self::load_transaction_editor()
+	 *
+	 **/	
+	
+	
+	
+	public function load_transaction_form( $transTitle, $newAction = null, $transArr = array(), $trans_id = null, $message = null ){
+		
+		//Do we have a student ID to associate with the transaction? 
+		$sid = (isset($_REQUEST['student_id']))?$_REQUEST['student_id']:null;
+		//If student ID is available lets assign it to the transaction array so we can display it. 
+		if($sid != null)
+			$transArr['student_id'] = $sid;
+		
+		
+		//Start to build the page. 
+		self::nb_admin_header($transTitle, $newAction); 
+		
+		if($message != null)
+			echo '<div class="updated" id="message"><p>'.$message.'</p></div>';
+		
+		echo'<form method="post" action="admin.php?page=edit_transaction';
+		if($trans_id != null)
+			echo '&trans_id='.intval($trans_id);
+		echo'">';
+		wp_nonce_field('edit_transaction','transaction-check', true);
+
+		echo'	
+			<h3>Transaction Details</h3>
+			<table class="form-table">
+				<tr>
+					<td>
+						<label for="trans_label">Transaction Label</label>
+						<input type="text" id="trans_label" name="trans_label"  value="'. $transArr['trans_label'] .'" >
+					
+					</td>
+					<td>
+						<label for="pp_txn_id">PayPal Transaction ID</label>
+						<input type="text" id="pp_txn_id" name="pp_txn_id"  value="'. $transArr['pp_txn_id'] .'" >
+					
+					</td>
+					<td>
+						<label for="student_id">Student ID</label>
+						<input type="text" id="student_id" name="student_id" value="'. $transArr['student_id'] .'" >
+					
+					</td>
+					
+				</tr>
+				<tr>
+					<td>
+						<table>
+							<tr>
+							
+								<td>
+									<label for="trans_amount">Amount(0.00)</label>
+									<input type="text" id="trans_amount" name="trans_amount" value="'. $transArr['trans_amount'] .'" >
+								</td>
+							</tr>
+							<tr>
+								<td>
+									<label for="trans_time">Date &amp; Time</label>
+									<input type="text" id="trans_time" name="trans_time"  value="'. $transArr['trans_time'] .'" >
+								</td>	
+							</tr>
+						</table>
+					</td>
+					<td colspan="2">
+						<label for="trans_detail">Transaction Details</label>
+						<textarea id="trans_detail" name="trans_detail" cols="80" rows="10" >'. $transArr['trans_detail'] .' </textarea>
+					</td>
+				</tr>
+				<tr>
+					<td>
+						<label for="trans_method">Method of Payment</label>';
+					
+		
+		$trans_method_post = isset($transArr['trans_method'])? $transArr['trans_method']: null;
+		
+
+		$methodsArr = array(
+			'paypal_manual' => 'Paypal (manual)',
+			'paypal_onetime' => 'Paypal (one-time)',
+			'paypal_recurring' => 'Paypal (recurring)',
+			'credit_card' => 'Credit Card',
+			'check' => 'Check',
+			'other' => 'Other'
+		);	
+		
+		self::nb_select_forms( $methodsArr,'trans_method', $trans_method_post);
+						
+		echo '		</td>
+					<td>
+						<label for="trans_type">Type of Transaction</label>';
+						
+		$trans_type_post = isset($transArr['trans_type'])? $transArr['trans_type']: null;
+		$typesArr = array(
+			'payment' => 'Payment',
+			'invoice' => 'Invoice',
+			'purchase' => 'Purchase',
+			'refund' => 'Refund',
+			'credit' => 'Credit',
+			'other' => 'Other'
+		);
+		self::nb_select_forms( $typesArr, 'trans_type', $trans_type_post);
+						
+
+		echo '		</td>
+				</tr>
+			</table>
+			';
+		if( $newAction != null ){
+			submit_button('Update Transaction');	
+		}else{
+			submit_button('Add Transaction');	
+		}
+		
+		if(isset($transArr['student_id']) && $transArr['student_id'] != 0){
+			echo '<a class="secondary" href="admin.php?page=edit_student&student_id='.$transArr['student_id'].'"><- go back to Student</a>';
+		}
+		
+		echo '</form>'; 	
+		
+		
+		
+		self::nb_admin_footer();
+	}
+
+	/*
+	 * LOAD GRADE EDITOR
+	 *
+	 * @since 1.0
+	 **/
+
+	public function load_grades_editor(){
+		global $wpdb;
+		
+		$student_id = null;
+		$message = null;
+		$gradesData = array();
+		
+		
+		$gradesArr = array(
+			'mc_1'=> array(
+				'mc_1-1' => 'Assignment 1.1: The Role of a Doula',
+				'mc_1-2' => 'Assignment 1.2: Labor Support',
+				'mc_1-3' => 'Assignment 1.3: The Cochrane Review',
+				'mc_1-4' => 'Assignment 1.4: Listening to Mothers',
+				'mc_u1p' => 'Unit 1 Project'
+			),
+			'mc_2'=> array(
+				'mc_2-1' => 'Assignment 2.1: Understanding Research',
+				'mc_2-2' => 'Assignment 2.2: Decision Making',
+				'mc_2-3' => 'Assignment 2.3: Medical History',
+				'mc_u2p1' => 'Unit 2 Project - Mother friendly Initiative',
+				'mc_u2p2' => 'Unit 2 Project - Interview'
+			),
+			'mc_3'=> array(
+				'mc_3-1' => 'Assignment 3.1: Needs Identification',
+				'mc_3-2' => 'Assignment 3.2: Safety Needs',
+				'mc_3-3' => 'Assignment 3.3: Prioritizing Needs',
+				'mc_u3p' => 'Unit 3 Project - Theories'
+			),
+			'mc_4'=> array(
+				'mc_4-1' => 'Assignment 4.1: Causes of Pain',
+				'mc_4-2' => 'Assignment 4.2: Research on Pain',
+				'mc_4-3' => 'Assignment 4.3: Locus of Control',
+				'mc_u4p' => 'Unit 4 Project - Pain Assessment'
+			),
+			'mc_5'=> array(
+				'mc_5-1' => 'Assignment 5.1: Assessing Anxiety',
+				'mc_u5p' => 'Unit 5 Project'
+			),
+			'cb_1'=> array(
+				'cb_1-1' => 'Assignment 1.1: Models of Care',
+				'cb_1-2' => 'Assignment 1.2: Common Complaints',
+				'cb_1-3' => 'Assignment 1.3: Exerciese: Natural Movement',
+				'cb_1-4' => 'Assignment 1.4: Nutrition',
+				'cb_u1p' => 'Unit 1 Project'
+			),
+			'cb_2'=> array(
+				'cb_2-1' => 'Assignment 2.1: Labor Progress',
+				'cb_2-2' => 'Assignment 2.2: Six Ways to Progress',
+				'cb_2-3' => 'Assignment 2.3: Physiologic Pushing',
+				'cb_u2p' => 'Unit 2 Project'
+			),
+			'cb_3'=> array(
+				'cb_3-1' => 'Assignment 3.1: Cord Clamping',
+				'cb_3-2' => 'Assignment 3.2: Third Stage Labor',
+				'cb_3-3' => 'Assignment 3.3: Newborn Procedures',
+				'cb_3-4' => 'Assignment 3.4: Breastfeeding'
+			),
+			'da'=> array(
+				'da_1' => 'Assignment 1: Communitcation',
+				'da_2-1' => 'Assignment 2.1: Environment, online',
+				'da_2-2' => 'Assignment 2.2: Environment, from text',
+				'da_3' => 'Assignment 3: Informed Consent',
+				'da_4' => 'Assignment 4: Mindfulness Training',
+				'da_5' => 'Assignment 5: Movement',
+				'da_6' => 'Assignment 6: Music Therapy',
+				'da_7' => 'Assignment 7: Positioning',
+				'da_8' => 'Assignment 8: Spirituality'
+			),
+			'bp'=> array(
+				'bp_1' => 'Debriefing',
+				'bp_2' => 'Skills Checkoff',
+				'bp_3' => 'Birth Plan'
+			)
+		);
+		
+		
+		//Start by processing current grades that have been added. 
+		if( isset($_GET['student_id']) ){
+			$student_id = $_GET['student_id'];
+			
+			if ( !empty($_POST) && check_admin_referer('edit_grades','grades-check') ){
+				//This is an update to an existing transaction. Proceed accordingly. 
+				
+				foreach($gradesArr as $gradeSet => $gradeSetArr){
+					$gradesData[$gradeSet] = array();//Setting up the sub-array 
+				
+
+					foreach($gradeSetArr as $gradeKey => $gVal){
+					
+						//echo $gradeKey. ": " .$_POST[$gradeKey];
+						if( !empty( $_POST[$gradeKey] ) ){
+							$gradesData[$gradeSet][$gradeKey] = $_POST[$gradeKey];
+							
+						} else {
+							$gradesData[$gradeSet][$gradeKey] = 0;
+						}
+						
+						
+					}
+				}
+				
+				$db_updated = update_user_meta( $student_id, 'student_grades', $gradesData, $prev_value);
+				
+				if($db_updated != false) $message = 'Grades have been successfully updated.';
+			}
+			
+		} 
+				
+		if( $student_id != null){
+				$studData =  get_user_meta($student_id, 'student_grades'); //Returns an array of grades
+				$studData = $studData[0];
+				
+		}
+				
+		self::load_grades_form('Edit Grades', null, $studData, $gradesArr, $message);  
+		
+	}
+
+
+
+	/*
+	 * LOAD GRADE FORM
+	 *
+	 * @since 1.0
+	 **/	
+	
+	
+	
+	public function load_grades_form( $pageTitle, $newAction = null, $studentData = array(), $gradesArr = array(), $message = null ){
+		$sid = (isset($_GET['student_id']))?$_GET['student_id']:null;
+		
+		if( isset( $sid ) ){
+			$student = get_userdata($sid);
+			$student_name = $student->display_name;
+			$pageTitle .= ": <em>$student_name</em>";
+		}
+		
+		self::nb_admin_header($pageTitle, $newAction); 
+		
+		if($message != null)
+			echo '<div class="updated" id="message"><p>'.$message.'</p></div>';
+		
+		echo'<form method="post" action="admin.php?page=edit_grades';
+		if($sid != null)
+			echo '&student_id='.intval($sid);
+		echo'">';
+		wp_nonce_field('edit_grades','grades-check', true);
+//Stopped HERE
+
+		$mainArrLen = count($gradesArr);
+		$fullArrLen = count($gradesArr, COUNT_RECURSIVE);
+		$subArrLen = $fullArrLen - $mainArrLen;
+		
+		
+/* 
+		echo "the length of the array is:". count($gradesArr, COUNT_RECURSIVE) ."<br>"; 
+		
+		echo "<pre>";
+		var_dump($gradesArr);		
+		echo "</pre>"; */
+		
+		echo '<table class="form-table">';
+		
+		 foreach( $gradesArr as $gradesKey => $gradesNameArr ) {
+		
+		echo "<tr>
+					<td>
+						<h3>". self::gradeKeyVal($gradesKey) ."</h3>
+						
+					</td>
+				</tr>";
+		
+			foreach( $gradesNameArr  as $gnKey => $gnVal ){
+				$studOpt = $studentData[$gradesKey][$gnKey];
+				
+				$optArr = array(
+					0 => "No Status",
+					1 => "Submitted",
+					2 => "Incomplete",
+					3 => "Resubmitted",
+					4 => "Completed"
+				);
+				
+				echo "<tr>
+					<td>
+						<select name='$gnKey'>";
+				foreach($optArr as $oKey => $oVal){
+					echo "<option value='$oKey' ";
+					if( $studOpt == $oKey ){
+						echo "selected";
+					}
+					echo ">$oVal</option>";
+					
+				}
+						
+				echo "		</select>
+						<label for='$gnKey'>$gnVal</label>
+					
+						
+					</td>
+					
+				</tr>";
+			}
+			
+			echo "<tr><td>";
+			submit_button('Update Grades');
+			echo "</td></tr>";
+			echo "<tr><td>&nbsp;</td></tr>";
+		}
+		
+
+		echo '	
+			</table>
+			';	
+		
+		echo '</form>'; 	
+		
+		if( !empty( $sid ) ){
+			echo '<a class="secondary" href="admin.php?page=edit_student&student_id='.$sid.'"><- go back to student editor</a>';
+		} 
+		
+		
+		self::nb_admin_footer();
+	}
+
+	
+	
+	/**
+	 * Load Email Student Editor
+	 *
+	 * @since 2.1
+	 *
+	 * Description: A page for automating Email responses. 
+	 *		
+	 *
+	 *
+	 *
+	 * Called in NB_Editor::add_admin_pages()
+	 *
+	 **/	
+	 
+	public function load_email_student_editor(){
+		
+		$page_title = "Auto Emailer Tool";
+		
+		$sid = (isset($_GET['student_id']))?$_GET['student_id']:null;
+		
+		if( !empty( $sid ) ){
+			$student = get_userdata($sid);
+			$student_name = $student->display_name;
+			$first_name = $student->first_name;
+			$page_title .= ": <em>$student_name</em>";
+		} 
+
+		self::nb_admin_header( $page_title ); 
+		
+		if( empty( $sid ) ){
+			echo"<h3>Whoops! No student has been selected to receive emails. <a href='/wp-admin/admin.php?page=students'>Please pick one first!</a></h3>";
+			return; 
+		}
+		
+		
+		if ( isset( $_POST ) && !empty( $_POST['humming-birds-and-bees'] ) ) {
+			 check_admin_referer( 'email_build', 'humming-birds-and-bees' );
+			
+			//Take Assembled information and build email. 
+			$mail_check = true;
+			
+			$sPostValue = ( isset( $_POST['email_type']) )? $_POST['email_type'] : NULL ;
+			$primaryEmailTo = ( isset( $_POST['email_to']) && ( $_POST['email_to'] == 'primary_email_to' ) )? $student->user_email : NULL ;
+			$primaryEmailCc = ( isset( $_POST['email_cc']) && ( $_POST['email_cc'] == 'primary_email_cc' ) )? $student->user_email : NULL ;
+			$paypalEmailTo = ( isset( $_POST['email_to']) && ( $_POST['email_to'] == 'paypal_email_to' ) )? $student->student_paypal : NULL ;
+			$paypalEmailCc = ( isset( $_POST['email_cc']) && ( $_POST['email_cc'] == 'paypal_email_cc' ))? $student->student_paypal : NULL ;
+			
+			switch( $sPostValue ){
+				case 'acct_inactive':
+					$subject = 'Account Inactive Notice';
+					$body = <<<EOT
+Greetings $first_name,
+
+Just a brief note to let you know that we have not received payment on your account for the past two months.  Your account has been placed on inactive status. If you would like to continue with the course, we will need to make arrangements to receive payment before continuing. If you are no longer interested in taking the course, no further action is required.
+
+EOT;
+					$admin_notes = 'Two months without payment on account, account moved to inactive status, notice sent.';
+					break;
+					
+				case 'pymt_skipped':
+					$subject = 'Payment Skipped';
+					$body = <<<EOT
+Greetings $first_name,
+
+We have received notice that your monthly payment with PayPal did not successfully process for the current month. This is usually caused by one of two reasons: an expired credit card number or insufficient funds in your bank account.
+
+If you're wanting to cancel your contract with New Beginnings please let us know so that we may make note of it on our end and suspend your billing agreement. Otherwise, please advise on how you would like to make payments. Paypal will automatically try to collect payment again on _____date_____, if funds are available in the account.
+					
+EOT;
+					$admin_notes = '';
+					break;
+					
+				case 'pp_acct_suspend':
+					$subject = 'PayPal Subscription Suspended';
+					$body = <<<EOT
+					
+EOT;
+					$admin_notes = '';
+					break;
+					
+				case 'new_stu_follow':
+					$subject = 'New Student Follow Up';
+					$body = <<<EOT
+					
+EOT;
+					$admin_notes = '';
+					break;
+					
+				case 'acct_pd_full':
+					$subject = 'Accoun Paid in Full';
+					$body = <<<EOT
+					
+EOT;
+					$admin_notes = '';
+					break;
+					
+				case 'almst_there':
+					$subject = 'You\'re Almost There!';
+					$body = <<<EOT
+					
+EOT;
+					$admin_notes = '';
+					break;
+			
+				case 'exp_notice':
+					$subject = 'Doula Student Account Expires Soon';
+					$body = <<<EOT
+					
+EOT;
+					$admin_notes = '';
+					break;
+					
+				case 'expd_account':
+					$subject = 'Doula Student Account Has Expired';
+					$body = <<<EOT
+					
+EOT;
+					$admin_notes = '';
+					break;
+					
+				case 'almn_renewal':
+					$subject = 'Alumni Renewal Notice';
+					$body = <<<EOT
+					
+EOT;
+					$admin_notes = '';
+					break;
+					
+				/* //HOLD FOR FUTURE EMAILS.
+				case '':
+					$subject = '';
+					$body = <<<EOT
+					
+EOT;
+					$admin_notes = '';
+					break; */
+					
+				
+					
+				default:
+					break;
+			
+			}
+			
+		
+		}
+		
+		
+		
+		
+		
+		echo "<h3>What kind of email would you like to send to {$student_name}?</h3>";
+		
+		$selectID = 'email_type';
+		
+		$selectArr = array(
+			'ISSUES' => array(
+				'acct_inactive'=>'Account Inactive Notice (manual)',
+				'pymt_skipped'=>'Payment Skipped (auto)',
+				'pp_acct_suspend'=>'PayPal Subscription Suspended (auto)'
+			),
+			'MOTIVATION' => array(
+				'new_stu_follow'=>'New Student Follow Up',
+				'acct_pd_full'=>'Accoun Paid in Full',
+				'almst_there'=>'You\'re Almost There!'
+			),
+
+			'RETENTION' => array(
+				'exp_notice'=>'Doula Student Account Expires Soon',
+				'expd_account'=>'Doula Student Account Has Expired',
+				'almn_renewal'=>'Alumni Renewal Notice'
+			)
+			
+		
+		);
+		
+		
+		
+		echo '<form method="post" action="">';
+		wp_nonce_field( 'email_build', 'humming-birds-and-bees' ); 
+		
+		echo '<select  id="email_type" name="email_type" >';
+		
+		foreach($selectArr as $selOpt => $selArr){
+			echo "<optgroup label='{$selOpt}'>";
+			foreach($selArr as $selKey => $selVal){
+				echo '<option value="'.$selKey.'" ';
+				
+				if( !empty($sPostValue) && ($sPostValue == $selKey) ) echo 'selected ';
+				
+				echo '>'.$selVal.'</option>';	
+			}
+			echo "</optgroup>";
+		}	
+
+		echo'</select>';
+		
+		echo '<h3>Which email address do you want to use?</h3>';
+		
+		echo "<p>To: Cc: <br>";
+		echo "<input type='checkbox' name='email_to' value='primary_email_to' checked='checked' />";
+		echo "<input type='checkbox' name='email_cc' value='primary_email_cc' />";
+		echo "Primary Email: <strong>".$student->user_email."</strong>";
+		echo "<br><input type='checkbox' name='email_to' value='paypal_email_to' />";
+		echo "<input type='checkbox' name='email_cc' value='paypal_email_cc' />";
+		echo "PayPal Email: <strong>".$student->student_paypal."</strong></p>";
+		
+		/* $email_subject = url_encode("Test Email Subject");
+		$email_body = url_encode("This is a test message. I need to figure out the multiple line thing still.");
+		 */
+		 
+		 
+		echo '<p class="submit">
+				<input type="submit" class="button-primary" value="Build Email" />
+			</p>';
+
+		echo "</form>";
+		
+		if( !empty( $mail_check ) ){
+			
+			$email_subject = rawurlencode($subject.' - New Beginnings Doula Training');
+			$email_body = rawurlencode($body);
+			
+			if( !empty( $primaryEmailTo ) ){
+				$email_student = $primaryEmailTo;
+			} elseif( !empty( $paypalEmailTo ) ){
+				$email_student = $paypalEmailTo;
+			} else {
+				$email_student = null;
+			}
+			
+			
+			if( empty($email_student) ){
+				echo "Whoops! Looks like you forgot to specify a email address to send this to. Go ahead and pick one and then try again!";
+			} else {
+			
+				echo "<p><a href='mailto:".$email_student."?subject={$email_subject}&body={$email_body}";
+				
+				//Check to see if we're adding a second email address
+				$cc_email = '';
+				$cc_email .= ( !empty( $primaryEmailCc ) )? "&cc=$primaryEmailCc": null;
+				$cc_email .= ( !empty( $paypalEmailCc ) )? "&cc=$paypalEmailCc": null;
+				if( !empty( $cc_email ) ) echo $cc_email;
+				
+				
+				echo "'>Email Is Ready!</a></p>";
+				
+				?>
+				<h3>Here's what this email looks like:</h3>
+				<p><em>TO:</em> <?php echo "$student_name &lt;$email_student&gt;"; ?> </p>
+				<p><em>CC:</em> <?php echo "&lt;incomplete&gt;"; ?> </p>
+				<p><em>SUBJECT:</em> <?php echo $subject;?></p>
+				<p><em>BODY:</em><br>
+				<?php echo $body; ?>
+				</p>
+				
+				<?php
+			
+			}
+			
+			//Display Message Details. 
+			
+			echo "<hr>";
+			
+			//Send Record of Action To Database. 
+			$note_date = date( 'j M Y' );
+			$admin_note = $note_date." - ".$admin_notes;
+			
+			?>
+			<h3>Now, let's add a note to the student's account that we've sent them an email.</h3>
+			<form method="post" action="">
+			<?php wp_nonce_field( 'admin_notes', 'humming-birds-and-bees' ); ?>
+			<h4>Admin Notes:</h4>
+			<textarea name='admin_notes' rows='3' cols='90'><?php echo $admin_note; ?></textarea>
+			<p class="submit">
+				<input type="submit" class="button-primary" value="Note Account" />
+			</p>
+			</form>
+			<?php
+		} 
+		
+		
+		//print_pre($student);
+			
+			
+	
+	
+	
+		self::nb_admin_footer();
+	}
+	
+	
+		
+	/*
+	 * LOAD IMPORT STUDENT EDITOR
+	 *
+	 * @since 1.0
+	 *
+	 * 
+	 *
+	 *
+	 *
+	 *
+	 *
+	 **/
+
+	public function load_import_transaction_editor( ){
+	//	echo "This is the student import editor!";
+	
+		if ( ! current_user_can( 'create_users' ) )
+			wp_die('You do not have sufficient permissions to access this page.' );			
+			
+		//print_pre($_REQUEST);	
+		
+		self::nb_admin_header( "Batch Import Student Transactions" );
+		
+		//First check to see if we have something to display for review.
+ 		if ( isset( $_POST['humming-birds-and-bees'] ) ) {
+			check_admin_referer( 'import_prep', 'humming-birds-and-bees' );
+			$results = self::prepare_import_csv();	
+			
+			$home_url = home_url();
+			$stud_url = $home_url .'/wp-admin/admin.php?page=edit_student&student_id=';
+			$trans_url = $home_url .'/wp-admin/admin.php?page=edit_transaction&trans_id=';
+			//Perform Checks first	
+			//Check for errors
+			if( !empty( $results['errors'] ) ){
+				
+				//Display errors
+				echo '<div class="error"><p><strong>' .  $results['errors'] . '</strong></p></div>';
+				$cur_path=$_SERVER['REQUEST_URI'];
+				echo "<p><a href='".blog_info('url')."/".$cur_path."'>Please try again!</a></p>";
+			} else {
+				
+				//take the results of the prepared import_csv and display them for consideration. 
+				//Set a new form with new nonce for processing import
+				
+				
+				echo '<form method="post" action="" enctype="multipart/form-data">';
+				wp_nonce_field( 'import_transaction', 'busy-bees-and-birds' ); 
+					
+				echo "<table class='wp-list-table widefat fixed'>
+						<thead><tr>
+							<th>Name/ID</th>
+							<th>Import Message</th>
+							<th>Additional Messages</th>
+							<th class='check-column'><em>Skip</em></th>
+						</tr></thead>
+						<tbody>";
+				
+					
+				//Displaying results for those transactions that are being proposed for update	
+				$i = 1;
+				foreach($results as $result){
+					
+					
+					
+						echo "<tr>";
+					if( empty( $result['transArr'] ) ){
+						echo "<td class='skip-row' colspan='4'>";
+						echo  "{$result['notice']}";
+						
+						if( !empty( $result['sid'] ) )
+							echo " <a href='{$trans_url}{$result['trans_id']}' target='_blank'>Trx ID: {$result['trans_id']} </a>, student: <a href='{$stud_url}{$result['sid']}' target='_blank'>{$result['name']} / id#:{$result['sid']}</a>";			 
+						
+						echo "</td>";		
+						
+					} else {
+						$cereal_trans = serialize( $result );
+						$cereal_id = 'cereal_trans_'.$i;
+						
+						
+						echo "<input type='hidden' name='$cereal_id' value='$cereal_trans'>";
+						//Name/ID
+						echo "<td>";
+						echo "<a href='".$stud_url . $result['sid']."' target='_blank'>".$result['transArr']['Name']." / id#:". $result['sid']."</a>";			 
+						echo "</td>";
+						
+						//Import Summary
+						echo "<td>";
+						echo $result['import_message'];			 
+						echo "</td>";					
+					
+						//Additional messages
+						echo "<td>";
+							
+						foreach($result['add_mess'] as $mess ){
+							echo "- $mess<br>";
+						} 
+						echo "</td>";		
+											
+						//Skip check box
+						$check_id = 'trans_check_'.$i;
+						$i++;
+						
+						echo "<th class='check-column'>";
+						echo "<input type='checkbox' name='$check_id'>";			 
+						echo "</th>";
+											
+					}	
+						echo "</tr>";
+				}
+					
+				echo '</tbody></table>
+				
+				<p><input type="submit" class="button-primary" value="Process" /></p>
+				</form>';
+			}
+			
+			
+		//This actually processes the transactions and updates the database. Results of this are displayed here. 
+		} elseif( isset( $_POST['busy-bees-and-birds'] ) ) {
+			
+			check_admin_referer( 'import_transaction', 'busy-bees-and-birds' );
+						
+			$prepArr = array();
+			
+			foreach($_POST as $pKey => $pVal){
+				if( strpos( $pKey , 'cereal_trans_' )  !==  FALSE ){
+					$cur_id = intval( str_replace( 'cereal_trans_', '', $pKey ) );
+					//check if we should skip this transaction. 
+					$skipped = 'trans_check_'.$cur_id;					
+					if( array_key_exists( $skipped, $_POST ) !== TRUE ){
+						
+						$prepArr[] = unserialize( stripslashes($pVal) );
+						
+					}
+				}
+			}
+			
+			//print_pre($prepArr);
+			
+			//Call the PROCESS IMPORT CSV, $process_results is an array of results. 
+			$process_results = self::process_import_csv($prepArr);
+			
+			//Display Results from 
+			
+			//Make available a timestamped batch record for bookkeeping purposes
+			
+			if( !empty( $process_results['errors'] ) ){
+				echo "NB_Editor::load_student_import_editor, line 1182, there was an error in the process: <br>";
+			
+			} elseif( !empty( $process_results ) ){
+				
+				//echo "NB_Editor::load_student_import_editor, line 1186, process results is not empty:  <br>";
+			
+			} else {
+				echo "NB_Editor::load_student_import_editor, line 1189, something else is wrong:  <br>";
+			
+			}
+			
+			
+			//print_pre( $process_results );
+
+			
+			//Dates should be at the beginning of the array. 
+			$batchDates = array_shift($process_results);
+			
+			//print_pre($batchDates);
+			$start_date = $batchDates['start_date'];
+			$end_date = $batchDates['end_date'];
+			
+			$displayBatchReport = '';
+			
+			$batchDate = date('m/d/Y');
+			$displayBatchReport = "New Beginnings Doula Training
+Transaction Import Batch Report, processed on $batchDate. 
+Start Date: $start_date, End Date: $end_date 
+================================================
+\n";
+			
+			$displayBatchReport .= self::batchReport($process_results);
+						
+			$batchReport = strip_tags( $displayBatchReport );
+			
+			$dateStamp = $start_date.'_'.$end_date;
+			$dateStamp = str_replace('/', '', $dateStamp);
+			$form_fields = array ('save'); // this is a list of the form field contents I want passed along between page views
+			$method = 'ftp'; // Normally you leave this an empty string and it figures it out by itself, but you can override the filesystem method here
+			 
+			// check to see if we are trying to save a file
+	
+			$url = wp_nonce_url('admin.php?page=import_transaction','import_transaction', $_POST['busy-bees-and-birds']);
+			$creds = request_filesystem_credentials($url);
+			WP_Filesystem($creds);
+			$upload_dir = wp_upload_dir();
+			
+			//print_pre($upload_dir);
+			$fileuri = trailingslashit($upload_dir['path']).'batchReport_'.$dateStamp.'.txt';
+			$fileurl = trailingslashit($upload_dir['url']).'batchReport_'.$dateStamp.'.txt';
+			
+			$a = 1; 
+			$fileuri = self::check_batch_file_exists( $fileuri, $a ); 
+			$fileurl = self::check_batch_file_exists( $fileurl, $a ); 
+
+			// by this point, the $wp_filesystem global should be working, so let's use it to create a file
+			global $wp_filesystem;
+						
+			if ( ! $wp_filesystem->put_contents( $fileuri, $batchReport, FS_CHMOD_FILE) ) {
+				echo '<div class="error"><p>Error saving file!</p></div>';
+			} else {
+				echo '<div class="updated"><p><a href="'.$fileurl.' " target="_blank">Open Batch Report!</a> (saved in .txt format)</p></div>';
+			}
+			
+		
+			
+			
+			$displayBatchReport = nl2br( $displayBatchReport );
+			echo '<hr>';
+			echo $displayBatchReport;
+			echo '<hr>';
+			$import_admin_url = admin_url( 'admin.php?page=import_transaction' );
+			echo "<a href='$inport_admin_url'>Add Another Batch!</a>";
+		} else {
+		
+		// Show the form.  
+		?>
+		<form method="post" action="" enctype="multipart/form-data">
+			<?php wp_nonce_field( 'import_prep', 'humming-birds-and-bees' ); ?>
+			
+			<div class="updated"><p>This importer is designed to take a batch of transactions from Paypal and process them. Existing users will have their accounts updated with latest transaction information. Transactions that don't have a user account associated with them will be ignored.</p></div>
+			<table class="form-table">
+				<tr valign="top">
+					<td><label for="users_csv">CSV file</label><br>
+						<input type="file" id="users_csv" name="users_csv" value="" class="all-options" /><br>
+						<span class="description"><?php echo sprintf( 'You may want to see <a href="%s" target="_blank">the example of the CSV file</a>.', '/migration/import-sample.csv'); ?></span>
+					</td>
+				</tr>
+			</table>
+			<p class="submit">
+				<input type="submit" class="button-primary" value="Import" />
+			</p>
+		</form>
+		
+		<hr>
+		<h3>Other Management Tools</h3>
+		<p>Jump to -> 
+		<a href="http://dev.trainingdoulas.com/tools/ledger_prep.php" target="_blank">Batch Ledger Tool</a> (opens new window)</p>
+		
+		
+		<?php
+		
+		}
+		
+		
+		
+		self::nb_admin_footer();
+	} 
+
+	/**
+	 * PREPARE IMPORT CSV
+	 *
+	 * @since 2.0
+	 *
+	 * -This is a new function. 
+	 * -It prepares contents from CSV file to be considered on the import screen before processing the import
+	 *			
+	 *
+	 * Called in self::load_import_transaction_editor, approx line 1026
+	 *
+	 *
+	 **/ 
+	public function prepare_import_csv() {
+		
+		$results = array();
+		// GET FILE NAME 
+		if ( isset( $_FILES['users_csv']['tmp_name'] ) ) {
+			// Setup settings variables
+			
+			$filename = $_FILES['users_csv']['tmp_name'];
+			
+			if(!file_exists($filename)){
+				echo "Error reading file!";
+				exit;
+			} else {
+				$file = fopen($filename, "r");
+				
+				if(!$file){
+					echo "Trouble reading file. sorry!";
+					exit;
+				} else {
+					//echo "File is opened and we're ready to proceed!";
+				}
+			}
+
+
+			$first = true;
+			
+			while(($line = fgetcsv($file)) !== false){
+				
+				// If not empty and the first line
+				if( !empty( $line ) && $first ){
+					for($i = 0; $i < sizeof($line); $i++)
+					$line[$i] = str_replace( ' ', '_', trim( $line[$i] ) );
+					$headers = $line;
+					$first = false;
+					continue;
+				
+				// If the first line is empty, abort
+				}elseif( empty( $line ) && $first ){// If we are on the first line, the columns are the headers
+					break;
+				}
+				
+				//If the line is not empty combine it with the header. 
+				if( !empty( $line[0] ) ){
+					$line = array_combine($headers, $line);
+					
+					
+					//Find the registered student that this transaction applies to. 
+					//Will return false if the transaction is not associated with a student.
+					$nb_stud = new NB_Student();
+					$student = $nb_stud->get_student_from_paypal($line); 
+					
+					//If the student does not return with the WP_USER object then we assume that the transaction is not associated with a user. 
+					//This is a much needed filter on this particular function to prevent random user insertions into the database. 
+					if( !is_a( $student, 'WP_User' ) ){
+										
+						$results[] = array(
+						'notice' => "There is no account associated with this transaction. It will not be inserted. For reference, Name is: {$line['Name']}" );
+							
+					} else {
+					
+						$sid = $student->ID;
+						$nb_trans = new NB_Transaction($sid);
+						
+						$results[] = $nb_trans->prep_import( $line );
+						
+					}
+				} else {
+					//Line[0] has an empty value. Caused by extra lines inserted at the bottom of the CSV File. Just move on. 
+					continue;
+				}
+			}			
+		} else {
+			
+			$results['error'] = "Error: No file was selected.";
+		}
+		
+		//We need to generate some Response to the import...		
+		return $results;
+	}
+
+
+
+	 
+	
+	
+	/**
+	 * PROCESS IMPORT CSV
+	 *
+	 * @since 1.0
+	 *
+	 * -Step one: Prepare content of CSV File for import. 
+	 *		-Collect CSV information, then prep it for how it will be imported into the student accounts
+	 * -Step two: Display information to be imported for consideration before importing. 
+	 *		-Is this a new student/entry? 
+	 *      -List all actions that will be preformed on the student's account
+	 *  	-Option to ignore or delete a specific line item from prepared list
+	 * -Step three: process proposed imports. 
+	 *      -Take propsed tasks and process them, one by one. 
+	 *		-Prepare batch output file to save to local computer. 
+	 *		-Also display results on the screen. 
+	 *		-Address Errors, provide quick links to student pages in new window for review of conflicts. 
+	 *
+	 * @ $filename = string to the filename of the CSV file
+	 * @ $args = additional parameters to be considered for what? I'm not sure yet. 
+	 * @
+	 *
+	 *
+	 *
+	 */
+   	public static function process_import_csv( $prepArr ) {
+	//Function has been gutted and completely overhauled.
+		//echo" NB_Editor::process_import_csv(), function as been called.<br>";
+	
+		$tResults = array(); //Note the additional 's' on the end of the line.
+		
+		//Add a date range for the batch report
+		
+		$len = sizeof($prepArr);
+		$last = intval($len - 1);
+		//Assuming that the last array entry will always be the start date and visa versa. 
+		$start_date = $prepArr[$last]['transArr']['Date'];
+		$end_date = $prepArr[0]['transArr']['Date'];
+		
+		$tResults['dates'] = array(
+			'start_date' => $start_date,
+			'end_date' => $end_date
+		); 
+		
+		
+		
+		foreach($prepArr as $pKey => $pArr){
+			$sid = $pArr['sid'];
+			
+			if( !empty( $sid ) ){ //We are only going to insert transactions when student IDs are set. 
+				
+				//echo" NB_Editor::process_import_csv(), line 1406 SID is not empty.<br>";	
+				//print_pre( $pArr['transArr'] );
+				$nb_trans = new NB_Transaction($sid);
+				$nb_trans->paypal_import_prep( $pArr['transArr'] );	
+				$tResult = $nb_trans->process_transaction(); // not new user, not override, don't display results, so no optional parameters are being passed.
+				
+				if( !empty( $tResult ) )
+					$tResults[] = $tResult;
+				
+			}
+		}
+		/* echo "<br> NB_editor::process_import_csv (line 1395) This should be sent back to the editor screen to process the results. The value of the tResults array is: ";
+		print_pre($tResults); */
+		
+		return( !empty( $tResults ) )? $tResults : false ;
+		
+	}
+
+	
+	
+	
+	
+	/**
+	 * Log errors to a file
+	 *
+	 * @since 0.2
+	 *
+	 * This function needs to be tested. 
+	 **/
+ 	private static function log_errors( $errors ) {
+		if ( empty( $errors ) )
+			return;
+
+		$log = @fopen( self::$log_dir_path . 'doula_csv_import_errors.log', 'a' );
+		@fwrite( $log, sprintf(  'BEGIN %s', date( 'Y-m-d H:i:s', time() ) ) . "\n" );
+
+		foreach ( $errors as $key => $error ) {
+			$line = $key + 1;
+			$message = $error->get_error_message();
+			@fwrite( $log, sprintf( '[Line %1$s] %2$s', $line, $message ) . "\n" );
+		}
+
+		@fclose( $log );
+	} 
+
+	
+	/*
+	 * NB ADMIN HEADER
+	 *
+	 * @since 1.0
+	 **/
+
+	private function nb_admin_header( $pTitle , $addNewLink = NULL ){
+		
+		echo '<div class="wrap">';
+		screen_icon(); 
+		echo '<h2>'.$pTitle;
+		
+		if( $addNewLink != null )
+				echo'<a class="add-new-h2" href="admin.php?page='. $addNewLink .'">Add New</a>';
+		echo '</h2>';	
+		
+	}
+
+
+	
+			
+		
+	/*
+	 * NB ADMIN FOOTER
+	 *
+	 * @since 1.0
+	 **/
+
+	private function nb_admin_footer(){
+
+		echo '</div><!-- .wrap -->';
+
+	}
+
+
+	
+			
+		
+	/*
+	 * NB STUDENT OVERVIEW HEADER
+	 *
+	 * @since 1.0
+	 **/
+
+	private function nb_student_overview_header(){ //$user_query
+
+		self::nb_admin_header('Students Overview', 'add_student'); 
+		
+		echo '
+		<ul class="subsubsub">
+			<li class="all"><a '.self::nb_cur_page('all').' href="admin.php?page=students">All<!-- <span class="count">(83)</span> --></a> |</li>
+			<li class="current"><a '.self::nb_cur_page('current').'  href="admin.php?page=students&amp;student_type=current">Current<!-- <span class="count">(83)</span> --></a> |</li>
+			<li class="inactive"><a '.self::nb_cur_page('inactive').'  href="admin.php?page=students&amp;student_type=inactive">Inactive<!-- <span class="count">(83)</span> --></a> |</li>
+			<li class="alumni"><a '.self::nb_cur_page('alumni').'  href="admin.php?page=students&amp;student_type=alumni">Alumni<!-- <span class="count">(83)</span> --></a></li>
+		</ul>';
+		
+	}
+
+	
+			
+		
+	/*
+	 * NB CUR PAGE
+	 *
+	 * @since 1.0
+	 **/
+
+	private function nb_cur_page($nb_cur_page){
+		global $student_type;
+		if($nb_cur_page == $student_type){
+			return ' class="current" ';
+		}
+	}
+
+
+	
+			
+		
+	/*
+	 * NB SELECT FORMS
+	 *
+	 * @since 1.0
+	 **/
+
+	private function nb_select_forms( array $selectArr, $selectID, $sPostValue = null ){
+
+		echo '<select  id="'.$selectID.'" name="'.$selectID.'" >';
+		
+		foreach($selectArr as $selKey => $selVal){
+			echo '<option value="'.$selKey.'" ';
+			
+			if( ($sPostValue != null) && ($sPostValue == $selKey) ) echo 'selected ';
+			
+			echo '>'.$selVal.'</option>';
+		}	
+
+		echo'</select>';
+	}
+	
+			
+		
+	/*
+	 * ADD ADMIN MENU SEPERATOR
+	 *
+	 * @since 1.0
+	 **/
+
+	private static function add_admin_menu_separator($position) {
+
+		global $menu;
+		$index = 0;
+
+		foreach($menu as $offset => $section) {
+			if (substr($section[2],0,9)=='separator')
+				$index++;
+			if ($offset>=$position) {
+				$menu[$position] = array('','read',"separator{$index}",'','wp-menu-separator');
+				break;
+			}
+		}
+
+		ksort( $menu );
+	}
+
+	
+	
+	/*
+	 * ADD Grade Key Value translator
+	 *
+	 * @since 1.1
+	 **/
+	 
+	public function gradeKeyVal($gradeKey){
+		
+		$gk = substr($gradeKey, 0, 2);
+		
+		$uNum = ( strlen($gradeKey) == 4 )? substr($gradeKey, 3, 1) : NULL ;
+		
+		switch($gk){
+			case 'mc':
+				return 'Main Course, Unit '.$uNum;
+			case 'cb':
+				return 'Childbirth Course, Unit '.$uNum;
+			case 'da':
+				return 'Doula Actions';
+			case 'bp':
+				return 'Birth Packet';
+			default:
+				return NULL;
+		
+		}
+	}
+	
+
+	
+	/**
+	 * TEST WINDOW EDITOR
+	 *
+	 * @since 2.0
+	 *
+	 * Description: Used for running test cases on specific
+	 *		functions.
+	 *
+	 *
+	 *
+	 * Called in NB_Editor::add_admin_pages()
+	 *
+	 **/	
+	public function load_test_window_editor(){
+		
+	 	echo "<h1>Test Window</h1>";
+		//START TESTING
+
+		
+		
+		$resultsArr = Array(
+			0 => Array(
+					0 => 'Transaction #604 has been added.',
+					1 => 'Transaction #604 for user #111 has been processed.',
+					'add_mess' => Array(
+							0 => "User #'s account did not recorded the date of this latest invoice."
+						)
+
+				),
+
+			1 => Array(
+					0 => 'Transaction #605 has been added.',
+					1 => 'Transaction #605 for user #16 has been processed.',
+					'add_mess' => Array(
+							0 => "User #'s account has recorded the date of this latest invoice.",
+							1 => "The course access has been updated for user #16. It has been set to 1."
+						)
+
+				),
+
+			2 => Array(
+					0 => 'Transaction #606 has been added.',
+					1 => 'Transaction #606 for user #260 has been processed.',
+					'add_mess' => Array(
+							0 => "User #'s account did not recorded the date of this latest invoice.",
+							1 => NULL
+						)
+
+				),
+
+			3 => Array
+				(
+					0 => 'Transaction #607 has been added.',
+					1 => 'Transaction #607 for user #248 has been processed.',
+					'add_mess' => Array
+						(
+							0 => "User #'s account did not recorded the date of this latest invoice.",
+							1 => NULL
+						)
+
+				),
+
+			4 => Array
+				(
+					0 => 'Transaction #608 has been added.',
+					1 => 'Transaction #608 for user #154 has been processed.',
+					'add_mess' => Array(
+							0 => "User #'s account did not recorded the date of this latest invoice.",
+							1 =>  NULL
+						)
+
+				)
+			);
+		
+		//print_pre($resultsArr);
+	
+//Let's define our private static variables...
+$upload_dir = $_SERVER['DOCUMENT_ROOT'];
+$log_dir_path =  $upload_dir.'/tools/batch_report/';
+
+
+
+		
+//If we're not printing to a log, we don't need these. 
+$batch_log_file = $log_dir_path . 'batch_report_'.$dateStamp.'.log';
+$batch_log_errors  = $log_dir_path . 'batch_csv_import_errors'.$dateStamp.'.log';
+	
+	
+	
+	
+//FROM OTTO's SUGGSTION:	
+			$batchDate = date('d/m/Y');
+			$batchReport = "New Beginnings Doula Training
+Transaction Import Batch Report for $batchDate: 
+================================================
+\n";
+			
+			$batchReport .= self::batchReport($resultsArr);
+						
+			echo $batchReport;
+			
+			$dateStamp = date('Ymd-his');
+			$form_fields = array ('save'); // this is a list of the form field contents I want passed along between page views
+			$method = 'ftp'; // Normally you leave this an empty string and it figures it out by itself, but you can override the filesystem method here
+			 
+			// check to see if we are trying to save a file
+			if (isset($_POST['save'])) {
+				$url = wp_nonce_url('admin.php?page=test_window','test-check', $_POST['test-checker']);
+				$creds = request_filesystem_credentials($url);
+				WP_Filesystem($creds);
+				$upload_dir = wp_upload_dir();
+				
+				//print_pre($upload_dir);
+				$fileuri = trailingslashit($upload_dir['path']).'batchReport_'.$dateStamp.'.txt';/* */
+				$fileurl = trailingslashit($upload_dir['url']).'batchReport_'.$dateStamp.'.txt';
+				 
+				// by this point, the $wp_filesystem global should be working, so let's use it to create a file
+				global $wp_filesystem;
+				if ( ! $wp_filesystem->put_contents( $fileuri, $_POST['batch'], FS_CHMOD_FILE) ) {
+					echo 'error saving file!';
+				} else {
+					echo '<a href="'.$fileurl.' " target="_blank">Open file!</a>';
+				}
+			
+			} else {
+		
+			?>
+				<form action="" method="POST">
+					<?php wp_nonce_field('test-check','test-checker', true); ?>
+					
+					Save to file the batch results: 
+					
+					<input type="hidden" name="batch" value="<?php echo $batchReport; ?>">
+					<input type="submit" name="save" value="Save" >
+				</form>
+				
+				
+				<?php
+		
+			} 
+		
+// END OTTO's SUGGESTION: 
+
+
+	/* 	
+		echo "file name that we're trying to write to is: $batch_log_file <br>";
+		if ( ! file_exists( $batch_log_file ) ) {//I don't want to print to a log file. 
+			$fHandle = fopen( $batch_log_file, 'x+' );
+			
+			$report = "The batch report goes here! \r\n This is a new line in the report. ";
+				
+			$writeRes = fwrite( $fHandle, $report );
+			
+	 		if ( $fHandle === FALSE ){ //This has been finicky and may misbehave again. 
+				 echo '<div class="updated"><p><strong>' . sprintf('Notice: please make the directory %s writable so that you can see the error log.', $log_dir_path ) . '</strong></p></div>'; 
+		
+			} else {
+				//Success, send message on how to retreive log file. 
+				
+				echo '<div class="updated"><p>' . sprintf('Success! The batch has completed normally: <a href="'.$batch_log_file.'" target="_blank">Download Batch Report</a>.' , self::$batch_log_file ) . '</p></div>';
+			}
+			
+			fclose($fHandle); 
+		}    */
+			
+			
+/* 			if ( isset( $results) ) { //We can flesh this out in much more details later.... 
+				if( !empty( $results['user_ids'] )){
+					echo '<div class="updated"><p><strong>' .'Student transactions import was successful.' . '</strong></p></div>';
+				} 
+				
+				if( !empty( $results['errors'] )){
+					echo '<div class="error"><p><strong>' .  'We had some problems with the import. Please investigate.' . '</strong></p></div>';
+				}  */
+			
+	/* 			$batch_log_msg = '';
+				if ( file_exists( $batch_log_file ) )
+					$batch_log_msg = sprintf( ', please <a href="%s">check the error log</a>' , $batch_log_url );
+
+				switch ( $_GET['import'] ) {
+					case 'file':
+						echo '<div class="error"><p><strong>' .  'Error during file upload.' . '</strong></p></div>';
+						break;
+					case 'data':
+						echo '<div class="error"><p><strong>' . 'Cannot extract data from uploaded file or no file was uploaded.' . '</strong></p></div>';
+						break;
+					case 'fail':
+						echo '<div class="error"><p><strong>' . sprintf('No student transactions were successfully imported%s.' , $batch_log_msg ) . '</strong></p></div>';
+						break;
+					case 'errors':
+						echo '<div class="error"><p><strong>' . sprintf('Some student transactionss were successfully imported but some were not%s.', $batch_log_msg ) . '</strong></p></div>';
+						break;
+					case 'success':
+						
+						break;
+					default:
+						break;
+				}
+		
+		*/
+	}
+	
+
+	public function batchReport($resultsArr, $sub = false ){
+		$batchReport = '';
+		foreach($resultsArr as $rKey => $rVal){
+			if( is_array( $rVal ) ){
+				if ( $rKey === 'add_mess') $sub = true;
+				$batchReport .= self::batchReport( $rVal, $sub );
+				continue;
+			}	else {
+				if( empty($rVal) ) continue;
+				if( $sub ) $batchReport .= ' - ';
+				
+				$batchReport .= $rVal."\n";	
+			} 
+		}
+		$sub = false;
+		$batchReport .= "\n";
+		
+		return $batchReport;
+	}  
+	
+	
+	public function check_batch_file_exists( $file, $i ){
+		
+		 if( is_file( $file ) || file_exists( $file ) || self::is_url_exist( $file ) ){
+			
+			if( strcmp( '-', substr( $file, -6, 1 ) ) === 0 ){
+				$file = substr_replace( $file, '-'.$i.'.txt', -6 );
+			} else {
+				$file = str_replace('.txt', '-'.$i.'.txt', $file );
+			}
+			
+			$i++;
+			$file = self::check_batch_file_exists( $file, $i );
+		} 
+		
+		return $file;
+	}
+	
+	//Credit: http://stackoverflow.com/questions/7684771/how-check-if-file-exists-from-web-address-url-in-php
+	public function is_url_exist($url){
+		$ch = curl_init($url);    
+		curl_setopt($ch, CURLOPT_NOBODY, true);
+		curl_exec($ch);
+		$code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+
+		if($code == 200){
+		   $status = true;
+		}else{
+		  $status = false;
+		}
+		curl_close($ch);
+	   return $status;
+	}
+
+	
+}
+?>

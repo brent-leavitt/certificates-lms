@@ -1,0 +1,92 @@
+/*
+* Login Screen Styles
+*/
+
+body{
+	font-family:"Trebuchet MS",Arial,Helvetica,sans-serif;
+}
+
+body.login {
+	background: url("../img/bg_wallpaper_sml.png") repeat scroll center top #F9FAF5;
+}
+
+body.login.dev{
+	background-image: url("../img/bg_wallpaper_sml_dev.png");
+}
+
+.login h1 a {
+	background-image: url('../img/training_doulas_logo.png');
+	background-size: 372px 77px;
+	width: 372px;
+	height: 77px;
+	margin-left: -60px;
+	padding-bottom: 0;
+}
+
+.login label{
+	text-transform: lowercase;
+	font-size: 1.2em;
+}
+
+.login .submit input{
+	text-transform: uppercase;
+	font-size: 1.4em;
+	line-height: 1.2em;
+}
+
+.wp-core-ui .button.button-large, .wp-core-ui .button-group.button-large .button{
+	height: 32px;
+	padding: 0 12px;
+}
+
+a, #adminmenu a, #the-comment-list p.comment-author strong a, #media-upload a.del-link, #media-items a.delete, #media-items a.delete-permanently, .plugins a.delete, .ui-tabs-nav a ,
+.login #nav a, .login #backtoblog a {
+	    color: #5D8270 !important;
+}
+
+a:hover, a:active,
+.login #nav a:hover, .login #backtoblog a:hover {
+	    color: #333333 !important; 
+}
+
+.wp-core-ui .button-primary{
+	background: #5d8270; /* Old browsers */
+	background: -moz-linear-gradient(top,  #5d8270 0%, #7da58f 100%); /* FF3.6+ */
+	background: -webkit-gradient(linear, left top, left bottom, color-stop(0%,#5d8270), color-stop(100%,#7da58f)); /* Chrome,Safari4+ */
+	background: -webkit-linear-gradient(top,  #5d8270 0%,#7da58f 100%); /* Chrome10+,Safari5.1+ */
+	background: -o-linear-gradient(top,  #5d8270 0%,#7da58f 100%); /* Opera 11.10+ */
+	background: -ms-linear-gradient(top,  #5d8270 0%,#7da58f 100%); /* IE10+ */
+	background: linear-gradient(to bottom,  #5d8270 0%,#7da58f 100%); /* W3C */
+	filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#5d8270', endColorstr='#7da58f',GradientType=0 ); /* IE6-8 */
+	box-shadow: 0 1px 0 rgba(239, 244, 231, 0.3) inset;
+	border-color:#7da58f #7da58f #5d8270;
+}
+
+.wp-core-ui .button-primary:hover,
+.wp-core-ui .button-primary.focus,
+.wp-core-ui .button-primary:focus
+{
+
+	background: #7da58f; /* Old browsers */
+	background: -moz-linear-gradient(top,  #7da58f 0%, #5d8270 100%); /* FF3.6+ */
+	background: -webkit-gradient(linear, left top, left bottom, color-stop(0%,#7da58f), color-stop(100%,#5d8270)); /* Chrome,Safari4+ */
+	background: -webkit-linear-gradient(top,  #7da58f 0%,#5d8270 100%); /* Chrome10+,Safari5.1+ */
+	background: -o-linear-gradient(top,  #7da58f 0%,#5d8270 100%); /* Opera 11.10+ */
+	background: -ms-linear-gradient(top,  #7da58f 0%,#5d8270 100%); /* IE10+ */
+	background: linear-gradient(to bottom,  #7da58f 0%,#5d8270 100%); /* W3C */
+	filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#7da58f', endColorstr='#5d8270',GradientType=0 ); /* IE6-8 */
+	box-shadow: 0 1px 0 rgba(239, 244, 231, 0.7) inset;
+
+}
+
+
+div.updated, .login .message {
+    background-color: #EFF4E7;
+    border-color: #5d8270;
+}
+
+
+div.error, .login #login_error {
+    background-color: #FFD8E9;
+    border-color: #9B173A;
+}
