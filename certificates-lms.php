@@ -64,13 +64,14 @@ Class Certificates_LMS{
 
 	//Add Custom User Roles
 	public function set_roles(){
-	
+		$roles = new ctrl\NBRole();
+		$roles->set_roles();
 		
 	}	
 	
 	//Add Custom User Capabilities
 	public function set_caps(){
-	
+		
 		
 	}
 	

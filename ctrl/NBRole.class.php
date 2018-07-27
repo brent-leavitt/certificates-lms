@@ -1,7 +1,7 @@
 <?php
 /*
-	This is the file where we control the setup specific custom post types. 
-	See also mold/NBPostType for where the actual modelling is happening. 
+	This is the file where we control the setup specific custom roles. 
+	See also mold/NBRole for where the actual modelling is happening. 
 */
 
 namespace ctrl;
@@ -27,32 +27,32 @@ class NBRole{
 	}
 	
 	
-	public function setup(){
+	public function set_roles(){
 		
 		$roles = $this->roles;
 
 		foreach($roles as $role ){
 			$$role = new Role ( $role );
-			$$role->add_new();
+			$$role->add();
 		}
-				
-			
-		
 	}
 	
 	
 	private function remove_default_roles(){
 		$defaults = $this->defaults;
-		
+		foreach( $defaults as $def )
+			remove_role( $def );
 	}
 	
 	
 	public function remove(){
 		
 		$roles = $this->roles;
-		foreach( $roles as $role )
-			remove_role( $role );
-		
+		foreach( $roles as $role ){
+			$$role = new Role( $role );
+			$$role->remove();
+		}
+
 	}
 
 	private function restore_default_roles(){
