@@ -37,10 +37,6 @@ Class Certificates_LMS{
 	public function init(){
 		
 		//setup Custom Post Types
-		
-		//require( __DIR__ .'/modl/NBPostType.class.php');
-		
-		
 		add_action( 'init', array( $this, 'set_cpts' ) );
 		
 		
@@ -71,7 +67,7 @@ Class Certificates_LMS{
 	
 	//Add Custom User Capabilities
 	public function set_caps(){
-		
+		//REmove this, decalre with SET_ROLES at same time. 
 		
 	}
 	
@@ -86,13 +82,15 @@ Class Certificates_LMS{
 		
 	//Remove Cusotm User Roles
 	public function remove_roles(){
-	
+		$roles = new ctrl\NBRole();
+		$roles->reset_default_roles();
 		
 	}	
 		
 	//Remove Custome User Capabilities
 	public function remove_caps(){
-	
+		//REmove this, DESCTORY WITH REMOVE_ROLES at same time. 
+		//Also restore default. 
 		
 	}	
 		
@@ -139,6 +137,8 @@ Class Certificates_LMS{
 		$this->set_roles();
 	
 	
+		//https://developer.wordpress.org/plugins/users/roles-and-capabilities/
+		//https://www.ibenic.com/manage-wordpress-user-roles-capabilities-code/	
 		//https://wordpress.stackexchange.com/questions/108338/capabilities-and-custom-post-types
 		//Custom Caps need to be given to each user role for each CPT that has been added. 
 		$this->set_caps();

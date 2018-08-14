@@ -1,5 +1,7 @@
 <?php
 
+//NOT IN USE??? I beleive this file can be deleted. 
+
 if( !class_exists() ){
 	
 	class NB_CPT_Ctrl{
