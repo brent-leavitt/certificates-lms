@@ -16,168 +16,179 @@
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
+if( !defined( 'NB_ROOT_DIR' ) )
+	define( 'NB_ROOT_DIR', plugin_dir_path( __FILE__ ) );	//Root Directory for Plugin	
 
-Class Certificates_LMS{
+if( !defined( 'NB_PREFIX' ) )
+	define( 'NB_PREFIX', 'nb_' ); 							//Prefix to use throughout the plugin. 
 
-	/*properties*/
-	
-	
-	
-	/*Methods*/
+if( !defined( 'NB_TD' ) )
+	define( 'NB_TD', 'certificates-lms' );					//Plugin text domain. 
 
-	public function __construct(){
+
+
+if( !class_exists( 'Certificates_LMS' ) ){
+
+	Class Certificates_LMS{
+
+		/*properties*/
+		
+		
+		
+		/*Methods*/
+
+		public function __construct(){
+				
+			$this->autoload_classes();
+			$this->init();
+			add_action('admin_notices', array( $this, 'sample_admin_notice__success' ) );
+		}
+		
+		
+		
+		public function init(){
 			
-		$this->autoload_classes();
+			//setup Custom Post Types
+			add_action( 'init', array( $this, 'set_cpts' ) );
 			
-		add_action('admin_notices', array( $this, 'sample_admin_notice__success' ) );
-	}
-	
-	
-	
-	public function init(){
-		
-		//setup Custom Post Types
-		add_action( 'init', array( $this, 'set_cpts' ) );
-		
-		
-		//setup activation and deactivation hooks
-		
-		register_activation_hook( __FILE__, array( $this, 'activation' ) );
-		
-		register_deactivation_hook( __FILE__, array( $this, 'deactivation' ) );
-		
-		//version control?
+			//Setup Menus
+			$menus = new view\admin\NBAdminMenu();
+			
+			//setup activation and deactivation hooks
+			
+			register_activation_hook( __FILE__, array( $this, 'activation' ) );
+			
+			register_deactivation_hook( __FILE__, array( $this, 'deactivation' ) );
+			
+			//version control?
 
-	}
-	
-	//Add Custom Post Types
-	public function set_cpts(){
+		}
 		
-		$cpts = new ctrl\NBPostType();
-		$cpts->setup();
-	}
-	
+		//Add Custom Post Types
+		public function set_cpts(){
+			
+			$cpts = new ctrl\NBPostType();
+			$cpts->setup();
+		}
+		
 
-	//Add Custom User Roles
-	public function set_roles(){
-		$roles = new ctrl\NBRole();
-		$roles->set_roles();
-		
-	}	
-	
-	//Add Custom User Capabilities
-	public function set_caps(){
-		//REmove this, decalre with SET_ROLES at same time. 
-		
-	}
-	
-	//Remove Custom Post Types
-	public function remove_cpts(){
-	
-		$cpts = new ctrl\NBPostType();
-		$cpts->remove();
-	
-	}
-	
-		
-	//Remove Cusotm User Roles
-	public function remove_roles(){
-		$roles = new ctrl\NBRole();
-		$roles->reset_default_roles();
-		
-	}	
-		
-	//Remove Custome User Capabilities
-	public function remove_caps(){
-		//REmove this, DESCTORY WITH REMOVE_ROLES at same time. 
-		//Also restore default. 
-		
-	}	
-		
-	
-	
-	public function sample_admin_notice__success() {
-		
-		?>
-		<div class="notice notice-success is-dismissible">
-			<p><?php _e( 'Test from within the Certs LMS Initiating Class!', 'certificates-lms' ); ?></p>
-		</div>
-		<?php
-		
-	}
-		
-	
-	
-	
-	private function autoload_classes( ){
-		
-		//This loads all classes, as needed, automatically! Slick!
-		
-		spl_autoload_register( function( $class ){
+		//Add Custom User Roles
+		public function set_roles(){
+			$roles = new ctrl\NBRole();
+			$roles->set_roles();
 			
-			$path = substr( str_replace( '\\', '/', $class), 0 );
-			$path = __DIR__ .'/'. $path . '.class.php';
+		}	
+		
+		//Add Custom User Capabilities
+		public function set_caps(){
+			//REmove this, decalre with SET_ROLES at same time. 
 			
-			if (file_exists($path))
-				require $path;
+		}
+		
+		//Remove Custom Post Types
+		public function remove_cpts(){
+		
+			$cpts = new ctrl\NBPostType();
+			$cpts->remove();
+		
+		}
+		
 			
-		} );
-	}
-	
-	
-	
-	public function activation(){
-	
-		//Add CPTs and Flush Rewrite Rules
-		$this->set_cpts();  	//Register the custom post type
-		flush_rewrite_rules();	//Clear the permalinks after CPTs have been registered
-	
-	
-		// Add Custom Roles. 	
-		$this->set_roles();
-	
-	
-		//https://developer.wordpress.org/plugins/users/roles-and-capabilities/
-		//https://www.ibenic.com/manage-wordpress-user-roles-capabilities-code/	
-		//https://wordpress.stackexchange.com/questions/108338/capabilities-and-custom-post-types
-		//Custom Caps need to be given to each user role for each CPT that has been added. 
-		$this->set_caps();
-	
-		//Setup a configuration process that explains how to use the plugin. 
-	}
-	
-	
-	public function deactivation(){
+		//Remove Cusotm User Roles
+		public function remove_roles(){
+			$roles = new ctrl\NBRole();
+			$roles->reset_default_roles();
+			
+		}	
+			
+		//Remove Custome User Capabilities
+		public function remove_caps(){
+			//REmove this, DESCTORY WITH REMOVE_ROLES at same time. 
+			//Also restore default. 
+			
+		}	
+			
 		
-		//Clean up Post Types being removed. 
-		$this->remove_cpts(); 	// unregister the post type, so the rules are no longer in memory
-		flush_rewrite_rules();	// clear the permalinks to remove our post type's rules from the database
 		
-		//See Activiation: 
-		//Remove caps given to all roles for plugin specific CPTs. 
-		$this->remove_caps();
-		$this->remove_roles();
+		public function sample_admin_notice__success() {
+			
+			?>
+			<div class="notice notice-success is-dismissible">
+				<p><?php _e( 'Test from within the Certs LMS Initiating Class!', 'certificates-lms' ); ?></p>
+			</div>
+			<?php
+			
+		}
+			
 		
-		//Setup a configuration process that explains how to use the plugin. 
-	}
-	
-	
+		
+		
+		private function autoload_classes( ){
+			
+			//This loads all classes, as needed, automatically! Slick!
+			
+			spl_autoload_register( function( $class ){
+				
+				$path = substr( str_replace( '\\', '/', $class), 0 );
+				$path = __DIR__ .'/'. $path . '.class.php';
+				
+				if (file_exists($path))
+					require $path;
+				
+			} );
+		}
+		
+		
+		
+		public function activation(){
+		
+			//Add CPTs and Flush Rewrite Rules
+			$this->set_cpts();  	//Register the custom post type
+			flush_rewrite_rules();	//Clear the permalinks after CPTs have been registered
+		
+		
+			// Add Custom Roles. 	
+			$this->set_roles();
+		
+		
+			//https://developer.wordpress.org/plugins/users/roles-and-capabilities/
+			//https://www.ibenic.com/manage-wordpress-user-roles-capabilities-code/	
+			//https://wordpress.stackexchange.com/questions/108338/capabilities-and-custom-post-types
+			//Custom Caps need to be given to each user role for each CPT that has been added. 
+			$this->set_caps();
+		
+			//Setup a configuration process that explains how to use the plugin. 
+		}
+		
+		
+		public function deactivation(){
+			
+			//Clean up Post Types being removed. 
+			$this->remove_cpts(); 	// unregister the post type, so the rules are no longer in memory
+			flush_rewrite_rules();	// clear the permalinks to remove our post type's rules from the database
+			
+			//See Activiation: 
+			//Remove caps given to all roles for plugin specific CPTs. 
+			$this->remove_caps();
+			$this->remove_roles();
+			
+			//Setup a configuration process that explains how to use the plugin. 
+		}
+		
+		
 
-	
-	
-	
-	/* public function first_run(){
-	
-		//Setup a configuration process that explains how to use the plugin. 
-	} */
-	
+		
+		
+		
+		/* public function first_run(){
+		
+			//Setup a configuration process that explains how to use the plugin. 
+		} */
+		
+	}
 }
 
-
 $loader = new Certificates_LMS();
-
-$loader->init();
-
 
 
 //NBDT Course Functions

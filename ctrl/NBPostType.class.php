@@ -63,7 +63,7 @@ class NBPostType{
 		$cert 		= new CPT( array( 
 			'post_type'=>'certificate', 
 			'description'=>'student generated certificates',
-			'menu_pos'=>54,
+			/* 'menu_pos'=>54, */
 			'supports' => array(
 				'title', 
 				'editor',
@@ -77,8 +77,8 @@ class NBPostType{
 		$assignment	= new CPT( array( 
 			'post_type'=>'assignment',
 			'description'=>'student submitted assignments',
-			'menu_pos'=>53,
-			'menu_icon'=>'portfolio',
+			/* 'menu_pos'=>53,*/
+			'menu_icon'=>'portfolio', 
 			'hierarchical' => false,
 			'exclude_from_search' => true,
 			'supports' => array( 

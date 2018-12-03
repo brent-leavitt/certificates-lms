@@ -2,6 +2,8 @@
 /*
 	This is the file where we control the setup specific custom roles. 
 	See also mold/NBRole for where the actual modelling is happening. 
+	
+	Assess the validity of adding an "Inactive" role that would catch both students and alumni.
 */
 
 namespace ctrl;

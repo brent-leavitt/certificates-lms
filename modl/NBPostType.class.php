@@ -17,7 +17,7 @@ class NBPostType{
 	* 
 	* 
 	*/
-	public CONST TD = 'certificates_lms'; //Text Domain
+	public CONST TD = NB_TD; //Text Domain
 	
 	public 	$cpt_args = array(
 		'post_type' => '', 			//
@@ -89,7 +89,7 @@ class NBPostType{
 			if( empty( $a[ 'cap_posts' ] ) )
 				$a[ 'cap_posts' ] = $p_name.'s';
 			
-			//Set Capabilities Posts
+			//Set Capabilities Post
 			if( empty( $a[ 'cap_post' ] ) )
 				$a[ 'cap_post' ] = $p_name;
 			
@@ -110,7 +110,7 @@ class NBPostType{
 	public function register_cpt( ){
 		
 		$args = $this->cpt_params();
-		$post_type = $this->cpt_args[ 'post_type' ];
+		$post_type = NB_PREFIX.$this->cpt_args[ 'post_type' ]; 
 		
 		register_post_type( $post_type, $args );
 		
@@ -186,7 +186,7 @@ class NBPostType{
 			'publicly_queryable' => true,
 			'query_var' => true,
 			'show_ui' => true,
-			'show_in_menu' => true,
+			'show_in_menu' => false, //Toggle here to hide from main menu. 
 			'has_archive' => true, 
 			'hierarchical' => true,
 			'menu_position' => $a[ 'menu_pos' ],
