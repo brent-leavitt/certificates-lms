@@ -42,7 +42,7 @@ Class NBAdminMenu{
 			'message_templates',
 			'messaging_logs',
 		),
-		'publishing' => array( 
+		'publishing' => array( //REMOVE, THIS BELONGS TO THE LIBRARY MOSTLY. 
 			'tracks',
 			'courses',
 			'materials',
@@ -50,7 +50,7 @@ Class NBAdminMenu{
 			'pages',
 			'media'
 		),
-		'finance' => array(
+		'finance' => array( //REMOVE, THIS IS MANAGED IN THE CRM
 			'invoices',
 			'transactions',
 			'new_financal',
@@ -64,7 +64,7 @@ Class NBAdminMenu{
 		),
 		'settings' => array(
 			'LMS_settings',			
-			'payment_gateways',
+			'payment_gateways', //REMOVE, THIS IS NETWORK SETTINGS. 
 			'certificate_settings',
 			'WP_core_menus',
 		)

@@ -1,6 +1,8 @@
 <?php 
 
 /*
+
+	This function needs to extend the AdminMenu Class found in the NN_Network plugin. 
 	This is the file where we handle the functions that will create the admin menus for the plugin. 
 */
 
